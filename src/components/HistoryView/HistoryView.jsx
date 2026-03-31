@@ -10,6 +10,7 @@ export default function HistoryView() {
   const { reviews, deleteReview, loading } = useReviews();
   const [filter, setFilter] = useState('all');
   const [selectedReview, setSelectedReview] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const filteredReviews = filter === 'all'
     ? reviews
@@ -25,10 +26,20 @@ export default function HistoryView() {
   lifeAreas.forEach(a => { areaMap[a.id] = a; });
 
   if (selectedReview) {
+    const handleDelete = async () => {
+      if (!showDeleteConfirm) {
+        setShowDeleteConfirm(true);
+        return;
+      }
+      await deleteReview(selectedReview.id);
+      setSelectedReview(null);
+      setShowDeleteConfirm(false);
+    };
+
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <button
-          onClick={() => setSelectedReview(null)}
+          onClick={() => { setSelectedReview(null); setShowDeleteConfirm(false); }}
           className="text-slate-400 hover:text-slate-200 transition-colors text-sm"
         >
           ← Back to History
@@ -43,15 +54,33 @@ export default function HistoryView() {
               {formatDate(selectedReview.createdAt || selectedReview.date)}
             </p>
           </div>
-          {selectedReview.insights && (
-            <button
-              onClick={() => navigate(`/insights/${selectedReview.id}`)}
-              className="px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg text-sm
-                hover:bg-indigo-500/30 transition-colors"
-            >
-              View Insights
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!showDeleteConfirm ? (
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 border border-red-500/30 text-red-400 rounded-lg text-sm
+                  hover:bg-red-500/10 transition-colors"
+              >
+                Delete
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-3 py-2 text-slate-400 text-sm hover:text-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm
+                    hover:bg-red-600 transition-colors"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Scores */}
@@ -67,8 +96,86 @@ export default function HistoryView() {
           ))}
         </div>
 
+        {/* Full Insights */}
+        {selectedReview.insights && (
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+              AI Insights
+            </h3>
+
+            {/* Headline */}
+            <div className="bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 border border-indigo-500/20 rounded-xl p-5 text-center">
+              <p className="text-lg font-semibold text-slate-100 leading-relaxed italic">
+                "{selectedReview.insights.headline}"
+              </p>
+            </div>
+
+            {/* Focus Area */}
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                Priority Focus Area
+              </h4>
+              <p className="text-slate-200 font-medium">{selectedReview.insights.focus_area}</p>
+            </div>
+
+            {/* Score Summary */}
+            <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                Score Summary
+              </h4>
+              <p className="text-slate-300 text-sm leading-relaxed">{selectedReview.insights.score_summary}</p>
+            </div>
+
+            {/* Strengths / Weaknesses / Improvements */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">
+                  Strengths
+                </h4>
+                <ul className="space-y-1.5">
+                  {selectedReview.insights.strengths.map((s, i) => (
+                    <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                      <span className="text-emerald-400 mt-0.5">•</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+                <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">
+                  Areas of Concern
+                </h4>
+                <ul className="space-y-1.5">
+                  {selectedReview.insights.weaknesses.map((w, i) => (
+                    <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                      <span className="text-red-400 mt-0.5">•</span>
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4">
+                <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                  Improvements
+                </h4>
+                <ul className="space-y-1.5">
+                  {selectedReview.insights.improvements.map((imp, i) => (
+                    <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                      <span className="text-blue-400 mt-0.5">•</span>
+                      <span>{imp}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Answers */}
         <div className="space-y-6">
+          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+            Reflection Answers
+          </h3>
           {lifeAreas.map(area => {
             const areaAnswers = selectedReview.answers[area.id] || [];
             const areaPrompts = prompts[area.id]?.[selectedReview.reviewType] || [];
@@ -99,17 +206,6 @@ export default function HistoryView() {
             );
           })}
         </div>
-
-        {/* Insights Summary */}
-        {selectedReview.insights && (
-          <div className="bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 border border-indigo-500/20 rounded-xl p-5">
-            <h3 className="font-semibold text-slate-200 mb-2">AI Headline</h3>
-            <p className="text-slate-300 italic">"{selectedReview.insights.headline}"</p>
-            <p className="text-sm text-amber-400 mt-2">
-              Focus: {selectedReview.insights.focus_area}
-            </p>
-          </div>
-        )}
       </div>
     );
   }
