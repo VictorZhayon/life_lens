@@ -13,6 +13,7 @@ export default function Settings() {
   });
   const [saved, setSaved] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
     const storedName = localStorage.getItem('lifelens_username') || '';
@@ -20,6 +21,9 @@ export default function Settings() {
 
     const config = getEmailJSConfig();
     if (config) setEmailConfig(config);
+
+    const theme = localStorage.getItem('lifelens_theme');
+    setIsDark(theme !== 'light');
   }, []);
 
   const handleSaveSettings = () => {
@@ -59,13 +63,14 @@ export default function Settings() {
 
   const handleToggleDarkMode = () => {
     const html = document.documentElement;
-    const isDark = html.classList.contains('dark');
     if (isDark) {
       html.classList.remove('dark');
       localStorage.setItem('lifelens_theme', 'light');
+      setIsDark(false);
     } else {
       html.classList.add('dark');
       localStorage.setItem('lifelens_theme', 'dark');
+      setIsDark(true);
     }
   };
 
@@ -142,8 +147,10 @@ export default function Settings() {
           className="flex items-center justify-between w-full px-4 py-3 bg-slate-900/50
             border border-slate-700 rounded-xl hover:border-slate-600 transition-colors"
         >
-          <span className="text-sm text-slate-300">Dark Mode</span>
-          <span className="text-xs text-slate-500">Toggle</span>
+          <span className="text-sm text-slate-300">{isDark ? 'Dark Mode' : 'Light Mode'}</span>
+          <span className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${isDark ? 'bg-indigo-500' : 'bg-slate-400'}`}>
+            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${isDark ? 'left-5' : 'left-0.5'}`} />
+          </span>
         </button>
       </section>
 

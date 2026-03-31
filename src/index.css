@@ -3,10 +3,70 @@
 /* Custom theme layer for Tailwind v4 */
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-input: var(--surface-input);
+  --color-border: var(--border-color);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
 }
 
 /* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ========= THEME VARIABLES ========= */
+
+/* Light mode (default) */
+:root {
+  --surface: #f8fafc;
+  --surface-alt: #f1f5f9;
+  --surface-raised: #ffffff;
+  --surface-input: #f1f5f9;
+  --border-color: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+  --selection-bg: rgba(99, 102, 241, 0.2);
+  --selection-color: #1e293b;
+  --slider-thumb-shadow: rgba(99, 102, 241, 0.25);
+}
+
+/* Dark mode */
+.dark {
+  --surface: #0f172a;
+  --surface-alt: #1e293b;
+  --surface-raised: #1e293b;
+  --surface-input: #0f172a80;
+  --border-color: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #475569;
+  --scrollbar-track: #0f172a;
+  --scrollbar-thumb: #334155;
+  --scrollbar-thumb-hover: #475569;
+  --selection-bg: rgba(99, 102, 241, 0.3);
+  --selection-color: white;
+  --slider-thumb-shadow: rgba(99, 102, 241, 0.3);
+}
+
+/* ========= BASE STYLES ========= */
+
+body {
+  background-color: var(--surface);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s, color 0.3s;
+}
 
 /* Slider thumb styling */
 input[type="range"].slider-thumb {
@@ -24,7 +84,7 @@ input[type="range"].slider-thumb::-webkit-slider-thumb {
   border-radius: 50%;
   background: white;
   cursor: pointer;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 0 4px var(--slider-thumb-shadow);
   transition: box-shadow 0.2s;
 }
 
@@ -39,7 +99,7 @@ input[type="range"].slider-thumb::-moz-range-thumb {
   background: white;
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 0 4px var(--slider-thumb-shadow);
 }
 
 /* Custom scrollbar */
@@ -48,16 +108,16 @@ input[type="range"].slider-thumb::-moz-range-thumb {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Animations */
@@ -103,17 +163,8 @@ input[type="range"].slider-thumb::-moz-range-thumb {
 
 /* Text selection */
 ::selection {
-  background-color: rgba(99, 102, 241, 0.3);
-  color: white;
-}
-
-/* Body */
-body {
-  background-color: #0f172a;
-  color: #e2e8f0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--selection-bg);
+  color: var(--selection-color);
 }
 
 /* Focus visible */
@@ -127,3 +178,48 @@ body {
 textarea {
   resize: vertical;
 }
+
+/* ========= LIGHT MODE OVERRIDES ========= */
+/* When dark class is NOT present, override the hardcoded dark Tailwind classes */
+:root:not(.dark) {
+  /* Main layout backgrounds */
+  .bg-slate-950 { background-color: #f8fafc !important; }
+  .bg-slate-950\/80 { background-color: rgba(248, 250, 252, 0.9) !important; }
+  .bg-slate-950\/90 { background-color: rgba(248, 250, 252, 0.95) !important; }
+  
+  /* Card / raised surface backgrounds */
+  .bg-slate-800\/40 { background-color: rgba(255, 255, 255, 0.8) !important; }
+  .bg-slate-800\/50 { background-color: rgba(255, 255, 255, 0.85) !important; }
+  .bg-slate-800\/60 { background-color: rgba(255, 255, 255, 0.9) !important; }
+  .bg-slate-800\/70 { background-color: rgba(241, 245, 249, 0.9) !important; }
+  .bg-slate-800 { background-color: #e2e8f0 !important; }
+  
+  /* Input backgrounds */
+  .bg-slate-900\/50 { background-color: rgba(241, 245, 249, 0.8) !important; }
+  
+  /* Text colors */
+  .text-slate-100 { color: #0f172a !important; }
+  .text-slate-200 { color: #1e293b !important; }
+  .text-slate-300 { color: #334155 !important; }
+  .text-slate-400 { color: #64748b !important; }
+  .text-slate-500 { color: #94a3b8 !important; }
+  .text-slate-600 { color: #94a3b8 !important; }
+  
+  /* Border colors */
+  .border-slate-700 { border-color: #cbd5e1 !important; }
+  .border-slate-800 { border-color: #e2e8f0 !important; }
+  .border-slate-600 { border-color: #94a3b8 !important; }
+  
+  /* Placeholder text */
+  .placeholder-slate-600::placeholder { color: #94a3b8 !important; }
+  
+  /* Hover states */
+  .hover\:bg-slate-800:hover { background-color: #e2e8f0 !important; }
+  .hover\:text-slate-200:hover { color: #1e293b !important; }
+  .hover\:text-slate-300:hover { color: #334155 !important; }
+  .hover\:border-slate-600:hover { border-color: #94a3b8 !important; }
+
+  /* Chart.js backgrounds (via inline styles in JS) won't change,
+     but the surrounding containers will adapt */
+}
+
