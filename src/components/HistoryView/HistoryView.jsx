@@ -7,7 +7,7 @@ import prompts from '../../data/prompts';
 
 export default function HistoryView() {
   const navigate = useNavigate();
-  const { reviews, deleteReview } = useReviews();
+  const { reviews, deleteReview, loading } = useReviews();
   const [filter, setFilter] = useState('all');
   const [selectedReview, setSelectedReview] = useState(null);
 
@@ -146,7 +146,12 @@ export default function HistoryView() {
       </div>
 
       {/* Reviews List */}
-      {filteredReviews.length === 0 ? (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+          <p className="text-slate-400">Loading reviews...</p>
+        </div>
+      ) : filteredReviews.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-slate-400">No reviews yet. Start your first review!</p>
         </div>

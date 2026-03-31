@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useReviews } from '../../hooks/useReviews';
 import { generateInsights } from '../../services/gemini';
 import { lifeAreas } from '../../data/lifeAreas';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 
 export default function InsightsDashboard() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getReviewById, updateReviewInsights } = useReviews();
+  const { getReviewById, updateReviewInsights, loading: reviewsLoading } = useReviews();
 
   const [review, setReview] = useState(null);
   const [insights, setInsights] = useState(null);
@@ -15,20 +17,42 @@ export default function InsightsDashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const r = getReviewById(id);
-    if (!r) {
-      navigate('/history');
-      return;
-    }
-    setReview(r);
+    if (reviewsLoading) return; // Wait for Firestore to finish loading
 
-    if (r.insights) {
-      setInsights(r.insights);
-      setLoading(false);
-    } else {
-      fetchInsights(r);
+    async function loadReview() {
+      // Try from in-memory cache first
+      let r = getReviewById(id);
+
+      // If not in cache, try fetching directly from Firestore
+      if (!r) {
+        try {
+          const docRef = doc(db, 'reviews', id);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            r = { id: docSnap.id, ...docSnap.data() };
+          }
+        } catch (err) {
+          console.error('Failed to fetch review:', err);
+        }
+      }
+
+      if (!r) {
+        navigate('/history');
+        return;
+      }
+
+      setReview(r);
+
+      if (r.insights) {
+        setInsights(r.insights);
+        setLoading(false);
+      } else {
+        fetchInsights(r);
+      }
     }
-  }, [id]);
+
+    loadReview();
+  }, [id, reviewsLoading]);
 
   const fetchInsights = async (r) => {
     setLoading(true);
