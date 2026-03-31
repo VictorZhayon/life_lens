@@ -32,7 +32,7 @@ export async function generateInsights(scores, answers, reviewType) {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const areaNames = {};
   lifeAreas.forEach(a => { areaNames[a.id] = a.name; });
