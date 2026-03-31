@@ -1,38 +1,49 @@
 import { useState, useCallback, useEffect } from 'react';
+import {
+  addReview as addReviewToFirestore,
+  getAllReviews,
+  updateReviewDoc,
+  deleteReviewDoc,
+  clearAllReviews
+} from '../services/firestore';
 
-const STORAGE_KEY = 'lifelens_reviews';
 const DRAFT_KEY = 'lifelens_draft';
 
-function getStoredReviews() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveStoredReviews(reviews) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-}
-
 export function useReviews() {
-  const [reviews, setReviews] = useState(() => getStoredReviews());
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sync state to localStorage on change
+  // Load reviews from Firestore on mount
   useEffect(() => {
-    saveStoredReviews(reviews);
-  }, [reviews]);
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await getAllReviews();
+        if (!cancelled) setReviews(data);
+      } catch (err) {
+        console.error('Failed to load reviews from Firestore:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
-  const saveReview = useCallback((review) => {
+  const saveReview = useCallback(async (review) => {
     const newReview = {
       ...review,
-      id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       createdAt: new Date().toISOString()
     };
-    setReviews(prev => [newReview, ...prev]);
-    clearDraft();
-    return newReview;
+    try {
+      const saved = await addReviewToFirestore(newReview);
+      setReviews(prev => [saved, ...prev]);
+      clearDraft();
+      return saved;
+    } catch (err) {
+      console.error('Failed to save review:', err);
+      throw err;
+    }
   }, []);
 
   const getReviewById = useCallback((id) => {
@@ -44,20 +55,34 @@ export function useReviews() {
     return reviews.filter(r => r.reviewType === type);
   }, [reviews]);
 
-  const updateReviewInsights = useCallback((id, insights) => {
-    setReviews(prev =>
-      prev.map(r => r.id === id ? { ...r, insights } : r)
-    );
+  const updateReviewInsights = useCallback(async (id, insights) => {
+    try {
+      await updateReviewDoc(id, { insights });
+      setReviews(prev =>
+        prev.map(r => r.id === id ? { ...r, insights } : r)
+      );
+    } catch (err) {
+      console.error('Failed to update insights:', err);
+    }
   }, []);
 
-  const deleteReview = useCallback((id) => {
-    setReviews(prev => prev.filter(r => r.id !== id));
+  const deleteReview = useCallback(async (id) => {
+    try {
+      await deleteReviewDoc(id);
+      setReviews(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete review:', err);
+    }
   }, []);
 
-  const clearAllData = useCallback(() => {
-    setReviews([]);
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(DRAFT_KEY);
+  const clearAllData = useCallback(async () => {
+    try {
+      await clearAllReviews();
+      setReviews([]);
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (err) {
+      console.error('Failed to clear all data:', err);
+    }
   }, []);
 
   const exportData = useCallback(() => {
@@ -74,7 +99,7 @@ export function useReviews() {
     URL.revokeObjectURL(url);
   }, [reviews]);
 
-  // Draft management
+  // Draft management — stays in localStorage (no need to persist drafts to DB)
   const saveDraft = useCallback((draft) => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({
       ...draft,
@@ -97,6 +122,7 @@ export function useReviews() {
 
   return {
     reviews,
+    loading,
     saveReview,
     getReviewById,
     getReviewsByType,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { clearAllReviews } from '../../services/firestore';
 
 export default function Settings() {
   const { getEmailJSConfig, saveEmailJSConfig } = useNotifications();
@@ -53,10 +54,13 @@ export default function Settings() {
     }
   };
 
-  const handleClearAll = () => {
-    localStorage.removeItem('lifelens_reviews');
-    localStorage.removeItem('lifelens_draft');
-    localStorage.removeItem('lifelens_last_notified');
+  const handleClearAll = async () => {
+    try {
+      await clearAllReviews();
+      localStorage.removeItem('lifelens_draft');
+    } catch (err) {
+      console.error('Failed to clear data:', err);
+    }
     setShowClearConfirm(false);
     window.location.reload();
   };

@@ -64,16 +64,21 @@ export default function ReviewForm() {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
-    const review = saveReview({
-      reviewType,
-      scores,
-      answers,
-      date: new Date().toISOString()
-    });
-    clearDraft();
-    navigate(`/insights/${review.id}`);
+    try {
+      const review = await saveReview({
+        reviewType,
+        scores,
+        answers,
+        date: new Date().toISOString()
+      });
+      clearDraft();
+      navigate(`/insights/${review.id}`);
+    } catch (err) {
+      console.error('Failed to submit review:', err);
+      setIsSubmitting(false);
+    }
   };
 
   const currentArea = step >= 1 && step <= 9 ? lifeAreas[step - 1] : null;
