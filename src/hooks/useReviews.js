@@ -4,7 +4,8 @@ import {
   getAllReviews,
   updateReviewDoc,
   deleteReviewDoc,
-  clearAllReviews
+  clearAllReviews,
+  importReviewDocs
 } from '../services/firestore';
 
 const DRAFT_KEY = 'lifelens_draft';
@@ -33,7 +34,11 @@ export function useReviews() {
   const saveReview = useCallback(async (review) => {
     const newReview = {
       ...review,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      // Include mood, journalEntry, photos if provided
+      mood: review.mood || null,
+      journalEntry: review.journalEntry || null,
+      photos: review.photos || []
     };
     try {
       const saved = await addReviewToFirestore(newReview);
@@ -88,6 +93,7 @@ export function useReviews() {
   const exportData = useCallback(() => {
     const data = {
       exportedAt: new Date().toISOString(),
+      version: '2.0',
       reviews
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -98,6 +104,33 @@ export function useReviews() {
     a.click();
     URL.revokeObjectURL(url);
   }, [reviews]);
+
+  /**
+   * Import reviews from a JSON export file.
+   * @param {Object} data - The parsed JSON data
+   * @param {'merge'|'replace'} mode - merge adds new reviews, replace clears and imports all
+   */
+  const importReviews = useCallback(async (data, mode = 'merge') => {
+    const importedReviews = data.reviews || [];
+
+    if (importedReviews.length === 0) {
+      throw new Error('No reviews found in import file');
+    }
+
+    if (mode === 'replace') {
+      await clearAllReviews();
+    }
+
+    const saved = await importReviewDocs(importedReviews);
+
+    if (mode === 'replace') {
+      setReviews(saved);
+    } else {
+      setReviews(prev => [...saved, ...prev]);
+    }
+
+    return saved.length;
+  }, []);
 
   // Draft management — stays in localStorage (no need to persist drafts to DB)
   const saveDraft = useCallback((draft) => {
@@ -130,6 +163,7 @@ export function useReviews() {
     deleteReview,
     clearAllData,
     exportData,
+    importReviews,
     saveDraft,
     getDraft,
     clearDraft

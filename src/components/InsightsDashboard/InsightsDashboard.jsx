@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReviews } from '../../hooks/useReviews';
 import { generateInsights } from '../../services/gemini';
+import { exportReviewAsPDF } from '../../services/pdfExport';
 import { lifeAreas } from '../../data/lifeAreas';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -15,6 +16,7 @@ export default function InsightsDashboard() {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (reviewsLoading) return; // Wait for Firestore to finish loading
@@ -72,10 +74,19 @@ export default function InsightsDashboard() {
     if (review) fetchInsights(review);
   };
 
-  if (!review) return null;
+  const handleExportPDF = async () => {
+    if (!review) return;
+    setExporting(true);
+    try {
+      await exportReviewAsPDF(review, insights, lifeAreas);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
-  const areaMap = {};
-  lifeAreas.forEach(a => { areaMap[a.id] = a; });
+  if (!review) return null;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -97,10 +108,8 @@ export default function InsightsDashboard() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
           <p className="text-red-400 mb-4">{error}</p>
-          <button
-            onClick={handleRegenerate}
-            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
-          >
+          <button onClick={handleRegenerate}
+            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors">
             Try Again
           </button>
         </div>
@@ -136,14 +145,11 @@ export default function InsightsDashboard() {
           <div className="grid gap-4 md:grid-cols-3">
             {/* Strengths */}
             <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-3">
-                Strengths
-              </h3>
+              <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-3">Strengths</h3>
               <ul className="space-y-2">
                 {insights.strengths.map((s, i) => (
                   <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                    <span className="text-emerald-400 mt-0.5">•</span>
-                    <span>{s}</span>
+                    <span className="text-emerald-400 mt-0.5">•</span><span>{s}</span>
                   </li>
                 ))}
               </ul>
@@ -151,14 +157,11 @@ export default function InsightsDashboard() {
 
             {/* Weaknesses */}
             <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">
-                Areas of Concern
-              </h3>
+              <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3">Areas of Concern</h3>
               <ul className="space-y-2">
                 {insights.weaknesses.map((w, i) => (
                   <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                    <span className="text-red-400 mt-0.5">•</span>
-                    <span>{w}</span>
+                    <span className="text-red-400 mt-0.5">•</span><span>{w}</span>
                   </li>
                 ))}
               </ul>
@@ -166,14 +169,11 @@ export default function InsightsDashboard() {
 
             {/* Improvements */}
             <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
-                Improvements
-              </h3>
+              <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Improvements</h3>
               <ul className="space-y-2">
                 {insights.improvements.map((imp, i) => (
                   <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                    <span className="text-blue-400 mt-0.5">•</span>
-                    <span>{imp}</span>
+                    <span className="text-blue-400 mt-0.5">•</span><span>{imp}</span>
                   </li>
                 ))}
               </ul>
@@ -182,51 +182,48 @@ export default function InsightsDashboard() {
 
           {/* Scores Grid */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Life Area Scores
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Life Area Scores</h3>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
               {lifeAreas.map(area => (
                 <div key={area.id} className="bg-slate-800/60 rounded-xl p-3 text-center border border-slate-700">
                   <span className="text-lg">{area.icon}</span>
                   <p className="text-xs text-slate-400 mt-1 truncate">{area.name.split(' ')[0]}</p>
-                  <p className="text-xl font-bold" style={{ color: area.color }}>
-                    {review.scores[area.id]}
-                  </p>
+                  <p className="text-xl font-bold" style={{ color: area.color }}>{review.scores[area.id]}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Regenerate Button */}
-          <div className="text-center pt-4">
-            <button
-              id="regenerate-insights-btn"
-              onClick={handleRegenerate}
-              className="px-6 py-2.5 bg-slate-800 text-slate-300 border border-slate-700
-                rounded-xl hover:border-indigo-500 hover:text-indigo-400
-                transition-all duration-200"
-            >
-              Regenerate Insights
+          {/* Action Buttons Row */}
+          <div className="flex flex-wrap justify-center gap-3 pt-4">
+            <button id="regenerate-insights-btn" onClick={handleRegenerate}
+              className="px-5 py-2.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl
+                hover:border-indigo-500 hover:text-indigo-400 transition-all duration-200 text-sm">
+              🔄 Regenerate
+            </button>
+            <button onClick={() => navigate(`/action-plan/${id}`)}
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-emerald-500 text-white
+                rounded-xl font-medium text-sm hover:shadow-lg hover:shadow-indigo-500/20 transition-all">
+              📋 Action Plan
+            </button>
+            <button onClick={handleExportPDF} disabled={exporting}
+              className="px-5 py-2.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl
+                hover:border-emerald-500 hover:text-emerald-400 transition-all duration-200 text-sm disabled:opacity-50">
+              {exporting ? '⏳ Exporting...' : '📄 Export PDF'}
             </button>
           </div>
         </>
       )}
 
-      {/* Action Buttons */}
+      {/* Navigation Buttons */}
       <div className="flex justify-center gap-4 pt-4">
-        <button
-          onClick={() => navigate('/history')}
+        <button onClick={() => navigate('/history')}
           className="px-6 py-2.5 text-slate-400 border border-slate-700 rounded-xl
-            hover:border-slate-600 hover:text-slate-300 transition-all"
-        >
+            hover:border-slate-600 hover:text-slate-300 transition-all">
           View History
         </button>
-        <button
-          onClick={() => navigate('/review')}
-          className="px-6 py-2.5 bg-indigo-500 text-white rounded-xl
-            hover:bg-indigo-400 transition-all font-medium"
-        >
+        <button onClick={() => navigate('/review')}
+          className="px-6 py-2.5 bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 transition-all font-medium">
           New Review
         </button>
       </div>

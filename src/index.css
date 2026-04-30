@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* Custom theme layer for Tailwind v4 */
 @theme {
@@ -13,9 +14,6 @@
   --color-text-muted: var(--text-muted);
   --color-text-faint: var(--text-faint);
 }
-
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ========= THEME VARIABLES ========= */
 
@@ -120,7 +118,8 @@ input[type="range"].slider-thumb::-moz-range-thumb {
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Animations */
+/* ========= ANIMATIONS ========= */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -128,6 +127,11 @@ input[type="range"].slider-thumb::-moz-range-thumb {
 
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -140,6 +144,20 @@ input[type="range"].slider-thumb::-moz-range-thumb {
   50% { opacity: 0.5; }
 }
 
+@keyframes badgeGlow {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.3)); }
+  50% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)); }
+}
+
+@keyframes progressFill {
+  from { stroke-dasharray: 0 100; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
@@ -148,12 +166,24 @@ input[type="range"].slider-thumb::-moz-range-thumb {
   animation: slideDown 0.4s ease-out;
 }
 
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out;
+}
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-badgeGlow {
+  animation: badgeGlow 2s ease-in-out infinite;
+}
+
+.animate-progressFill {
+  animation: progressFill 1s ease-out forwards;
 }
 
 /* Smooth transitions */
@@ -179,6 +209,23 @@ textarea {
   resize: vertical;
 }
 
+/* ========= PRINT STYLES (PDF Export) ========= */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  nav, header, .no-print {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
 /* ========= LIGHT MODE OVERRIDES ========= */
 /* When dark class is NOT present, override the hardcoded dark Tailwind classes */
 :root:not(.dark) {
@@ -193,6 +240,7 @@ textarea {
   .bg-slate-800\/60 { background-color: rgba(255, 255, 255, 0.9) !important; }
   .bg-slate-800\/70 { background-color: rgba(241, 245, 249, 0.9) !important; }
   .bg-slate-800 { background-color: #e2e8f0 !important; }
+  .bg-slate-900 { background-color: #f1f5f9 !important; }
   
   /* Input backgrounds */
   .bg-slate-900\/50 { background-color: rgba(241, 245, 249, 0.8) !important; }
@@ -222,4 +270,3 @@ textarea {
   /* Chart.js backgrounds (via inline styles in JS) won't change,
      but the surrounding containers will adapt */
 }
-

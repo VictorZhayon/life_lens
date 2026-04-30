@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getTriggerReviewTypes } from '../utils/dateHelpers';
 import { sendReminder } from '../services/emailjs';
+import {
+  isPushEnabled,
+  requestPermission,
+  disablePush,
+  getPermissionStatus,
+  checkAndSendReviewReminder
+} from '../services/pushNotifications';
 
 const NOTIFIED_KEY = 'lifelens_last_notified';
 const EMAILJS_CONFIG_KEY = 'lifelens_emailjs_config';
@@ -8,6 +15,8 @@ const EMAILJS_CONFIG_KEY = 'lifelens_emailjs_config';
 export function useNotifications() {
   const [triggerTypes, setTriggerTypes] = useState([]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(isPushEnabled());
+  const [pushPermission, setPushPermission] = useState(getPermissionStatus());
 
   useEffect(() => {
     const types = getTriggerReviewTypes();
@@ -15,6 +24,7 @@ export function useNotifications() {
 
     if (types.length > 0) {
       tryAutoSendEmail(types);
+      checkAndSendReviewReminder(types);
     }
   }, []);
 
@@ -52,6 +62,19 @@ export function useNotifications() {
     setBannerDismissed(true);
   }, []);
 
+  // Push notification controls
+  const enablePushNotifications = useCallback(async () => {
+    const granted = await requestPermission();
+    setPushEnabled(granted);
+    setPushPermission(getPermissionStatus());
+    return granted;
+  }, []);
+
+  const disablePushNotifications = useCallback(() => {
+    disablePush();
+    setPushEnabled(false);
+  }, []);
+
   const showBanner = triggerTypes.length > 0 && !bannerDismissed;
 
   return {
@@ -59,7 +82,11 @@ export function useNotifications() {
     showBanner,
     dismissBanner,
     getEmailJSConfig,
-    saveEmailJSConfig
+    saveEmailJSConfig,
+    pushEnabled,
+    pushPermission,
+    enablePushNotifications,
+    disablePushNotifications
   };
 }
 
