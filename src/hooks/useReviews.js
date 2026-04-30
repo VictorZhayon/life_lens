@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from './useAuth';
 import {
   addReview as addReviewToFirestore,
   getAllReviews,
@@ -9,18 +10,31 @@ import {
 } from '../services/firestore';
 
 const DRAFT_KEY = 'lifelens_draft';
+const CACHE_KEY = 'lifelens_reviews_cache';
 
 export function useReviews() {
+  const { userId } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load reviews from Firestore on mount
+  // Load from localStorage cache immediately, then Firestore
   useEffect(() => {
+    if (!userId) { setLoading(false); return; }
+
+    // Show cached data instantly
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) setReviews(JSON.parse(cached));
+    } catch {}
+
     let cancelled = false;
     async function load() {
       try {
-        const data = await getAllReviews();
-        if (!cancelled) setReviews(data);
+        const data = await getAllReviews(userId);
+        if (!cancelled) {
+          setReviews(data);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        }
       } catch (err) {
         console.error('Failed to load reviews from Firestore:', err);
       } finally {
@@ -29,27 +43,26 @@ export function useReviews() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [userId]);
 
   const saveReview = useCallback(async (review) => {
+    if (!userId) throw new Error('Not authenticated');
     const newReview = {
       ...review,
       createdAt: new Date().toISOString(),
-      // Include mood, journalEntry, photos if provided
       mood: review.mood || null,
       journalEntry: review.journalEntry || null,
       photos: review.photos || []
     };
-    try {
-      const saved = await addReviewToFirestore(newReview);
-      setReviews(prev => [saved, ...prev]);
-      clearDraft();
-      return saved;
-    } catch (err) {
-      console.error('Failed to save review:', err);
-      throw err;
-    }
-  }, []);
+    const saved = await addReviewToFirestore(userId, newReview);
+    setReviews(prev => {
+      const updated = [saved, ...prev];
+      localStorage.setItem(CACHE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+    clearDraft();
+    return saved;
+  }, [userId]);
 
   const getReviewById = useCallback((id) => {
     return reviews.find(r => r.id === id) || null;
@@ -61,41 +74,35 @@ export function useReviews() {
   }, [reviews]);
 
   const updateReviewInsights = useCallback(async (id, insights) => {
-    try {
-      await updateReviewDoc(id, { insights });
-      setReviews(prev =>
-        prev.map(r => r.id === id ? { ...r, insights } : r)
-      );
-    } catch (err) {
-      console.error('Failed to update insights:', err);
-    }
-  }, []);
+    if (!userId) return;
+    await updateReviewDoc(userId, id, { insights });
+    setReviews(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, insights } : r);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
 
   const deleteReview = useCallback(async (id) => {
-    try {
-      await deleteReviewDoc(id);
-      setReviews(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error('Failed to delete review:', err);
-    }
-  }, []);
+    if (!userId) return;
+    await deleteReviewDoc(userId, id);
+    setReviews(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, [userId]);
 
   const clearAllData = useCallback(async () => {
-    try {
-      await clearAllReviews();
-      setReviews([]);
-      localStorage.removeItem(DRAFT_KEY);
-    } catch (err) {
-      console.error('Failed to clear all data:', err);
-    }
-  }, []);
+    if (!userId) return;
+    await clearAllReviews(userId);
+    setReviews([]);
+    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(CACHE_KEY);
+  }, [userId]);
 
   const exportData = useCallback(() => {
-    const data = {
-      exportedAt: new Date().toISOString(),
-      version: '2.0',
-      reviews
-    };
+    const data = { exportedAt: new Date().toISOString(), version: '2.0', reviews };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -105,68 +112,40 @@ export function useReviews() {
     URL.revokeObjectURL(url);
   }, [reviews]);
 
-  /**
-   * Import reviews from a JSON export file.
-   * @param {Object} data - The parsed JSON data
-   * @param {'merge'|'replace'} mode - merge adds new reviews, replace clears and imports all
-   */
   const importReviews = useCallback(async (data, mode = 'merge') => {
+    if (!userId) throw new Error('Not authenticated');
     const importedReviews = data.reviews || [];
+    if (importedReviews.length === 0) throw new Error('No reviews found in import file');
 
-    if (importedReviews.length === 0) {
-      throw new Error('No reviews found in import file');
-    }
+    if (mode === 'replace') await clearAllReviews(userId);
 
-    if (mode === 'replace') {
-      await clearAllReviews();
-    }
-
-    const saved = await importReviewDocs(importedReviews);
+    const saved = await importReviewDocs(userId, importedReviews);
 
     if (mode === 'replace') {
       setReviews(saved);
     } else {
       setReviews(prev => [...saved, ...prev]);
     }
-
     return saved.length;
-  }, []);
+  }, [userId]);
 
-  // Draft management — stays in localStorage (no need to persist drafts to DB)
   const saveDraft = useCallback((draft) => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      ...draft,
-      savedAt: new Date().toISOString()
-    }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, savedAt: new Date().toISOString() }));
   }, []);
 
   const getDraft = useCallback(() => {
     try {
       const data = localStorage.getItem(DRAFT_KEY);
       return data ? JSON.parse(data) : null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }, []);
 
-  const clearDraft = useCallback(() => {
-    localStorage.removeItem(DRAFT_KEY);
-  }, []);
+  const clearDraft = useCallback(() => { localStorage.removeItem(DRAFT_KEY); }, []);
 
   return {
-    reviews,
-    loading,
-    saveReview,
-    getReviewById,
-    getReviewsByType,
-    updateReviewInsights,
-    deleteReview,
-    clearAllData,
-    exportData,
-    importReviews,
-    saveDraft,
-    getDraft,
-    clearDraft
+    reviews, loading, saveReview, getReviewById, getReviewsByType,
+    updateReviewInsights, deleteReview, clearAllData, exportData,
+    importReviews, saveDraft, getDraft, clearDraft
   };
 }
 
