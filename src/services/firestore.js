@@ -1,134 +1,169 @@
 import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy,
-  writeBatch,
-  where
+  collection, addDoc, getDocs, doc, updateDoc, deleteDoc,
+  query, orderBy, writeBatch, where, setDoc, getDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 
-// ==================== REVIEWS ====================
-const REVIEWS_COLLECTION = 'reviews';
+// ==================== HELPERS ====================
+// User-scoped collection path: users/{userId}/{collectionName}
+function userCol(userId, colName) {
+  return collection(db, 'users', userId, colName);
+}
 
-export async function addReview(review) {
-  const docRef = await addDoc(collection(db, REVIEWS_COLLECTION), review);
+function userDoc(userId, colName, docId) {
+  return doc(db, 'users', userId, colName, docId);
+}
+
+// ==================== MIGRATION ====================
+/**
+ * One-time migration: move root-level data to user subcollections.
+ * Call after first sign-in. Checks if migration already done.
+ */
+export async function migrateRootDataToUser(userId) {
+  const migrationRef = doc(db, 'users', userId);
+  const migrationSnap = await getDoc(migrationRef);
+
+  if (migrationSnap.exists() && migrationSnap.data().migrated) {
+    return false; // Already migrated
+  }
+
+  const rootCollections = ['reviews', 'goals', 'actionPlans', 'customTemplates'];
+
+  for (const colName of rootCollections) {
+    try {
+      const rootSnap = await getDocs(collection(db, colName));
+      if (rootSnap.empty) continue;
+
+      const batch = writeBatch(db);
+      rootSnap.docs.forEach(d => {
+        const targetRef = doc(db, 'users', userId, colName, d.id);
+        batch.set(targetRef, d.data());
+      });
+      await batch.commit();
+    } catch (err) {
+      console.error(`Migration failed for ${colName}:`, err);
+    }
+  }
+
+  // Mark migration complete
+  await setDoc(migrationRef, { migrated: true, migratedAt: new Date().toISOString() }, { merge: true });
+  return true;
+}
+
+// ==================== REVIEWS ====================
+export async function addReview(userId, review) {
+  const docRef = await addDoc(userCol(userId, 'reviews'), review);
   return { ...review, id: docRef.id };
 }
 
-export async function getAllReviews() {
-  const q = query(collection(db, REVIEWS_COLLECTION), orderBy('createdAt', 'desc'));
+export async function getAllReviews(userId) {
+  const q = query(userCol(userId, 'reviews'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function updateReviewDoc(id, data) {
-  const ref = doc(db, REVIEWS_COLLECTION, id);
-  await updateDoc(ref, data);
+export async function updateReviewDoc(userId, id, data) {
+  await updateDoc(userDoc(userId, 'reviews', id), data);
 }
 
-export async function deleteReviewDoc(id) {
-  const ref = doc(db, REVIEWS_COLLECTION, id);
-  await deleteDoc(ref);
+export async function deleteReviewDoc(userId, id) {
+  await deleteDoc(userDoc(userId, 'reviews', id));
 }
 
-export async function clearAllReviews() {
-  const snapshot = await getDocs(collection(db, REVIEWS_COLLECTION));
+export async function clearAllReviews(userId) {
+  const snapshot = await getDocs(userCol(userId, 'reviews'));
   const batch = writeBatch(db);
   snapshot.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
 }
 
-export async function importReviewDocs(reviews) {
+export async function importReviewDocs(userId, reviews) {
   const results = [];
   for (const review of reviews) {
     const { id, ...data } = review;
-    const docRef = await addDoc(collection(db, REVIEWS_COLLECTION), data);
+    const docRef = await addDoc(userCol(userId, 'reviews'), data);
     results.push({ ...data, id: docRef.id });
   }
   return results;
 }
 
 // ==================== GOALS ====================
-const GOALS_COLLECTION = 'goals';
-
-export async function addGoal(goal) {
-  const docRef = await addDoc(collection(db, GOALS_COLLECTION), goal);
+export async function addGoal(userId, goal) {
+  const docRef = await addDoc(userCol(userId, 'goals'), goal);
   return { ...goal, id: docRef.id };
 }
 
-export async function getAllGoals() {
-  const q = query(collection(db, GOALS_COLLECTION), orderBy('createdAt', 'desc'));
+export async function getAllGoals(userId) {
+  const q = query(userCol(userId, 'goals'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function updateGoalDoc(id, data) {
-  const ref = doc(db, GOALS_COLLECTION, id);
-  await updateDoc(ref, data);
+export async function updateGoalDoc(userId, id, data) {
+  await updateDoc(userDoc(userId, 'goals', id), data);
 }
 
-export async function deleteGoalDoc(id) {
-  const ref = doc(db, GOALS_COLLECTION, id);
-  await deleteDoc(ref);
+export async function deleteGoalDoc(userId, id) {
+  await deleteDoc(userDoc(userId, 'goals', id));
 }
 
 // ==================== ACTION PLANS ====================
-const PLANS_COLLECTION = 'actionPlans';
-
-export async function addActionPlan(plan) {
-  const docRef = await addDoc(collection(db, PLANS_COLLECTION), plan);
+export async function addActionPlan(userId, plan) {
+  const docRef = await addDoc(userCol(userId, 'actionPlans'), plan);
   return { ...plan, id: docRef.id };
 }
 
-export async function getActionPlans() {
-  const q = query(collection(db, PLANS_COLLECTION), orderBy('createdAt', 'desc'));
+export async function getActionPlans(userId) {
+  const q = query(userCol(userId, 'actionPlans'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function getActionPlanByReviewId(reviewId) {
-  const q = query(collection(db, PLANS_COLLECTION), where('reviewId', '==', reviewId));
+export async function getActionPlanByReviewId(userId, reviewId) {
+  const q = query(userCol(userId, 'actionPlans'), where('reviewId', '==', reviewId));
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;
   const d = snapshot.docs[0];
   return { id: d.id, ...d.data() };
 }
 
-export async function updateActionPlanDoc(id, data) {
-  const ref = doc(db, PLANS_COLLECTION, id);
-  await updateDoc(ref, data);
+export async function updateActionPlanDoc(userId, id, data) {
+  await updateDoc(userDoc(userId, 'actionPlans', id), data);
 }
 
-export async function deleteActionPlanDoc(id) {
-  const ref = doc(db, PLANS_COLLECTION, id);
-  await deleteDoc(ref);
+export async function deleteActionPlanDoc(userId, id) {
+  await deleteDoc(userDoc(userId, 'actionPlans', id));
 }
 
 // ==================== CUSTOM TEMPLATES ====================
-const TEMPLATES_COLLECTION = 'customTemplates';
-
-export async function addTemplate(template) {
-  const docRef = await addDoc(collection(db, TEMPLATES_COLLECTION), template);
+export async function addTemplate(userId, template) {
+  const docRef = await addDoc(userCol(userId, 'customTemplates'), template);
   return { ...template, id: docRef.id };
 }
 
-export async function getAllTemplates() {
-  const q = query(collection(db, TEMPLATES_COLLECTION), orderBy('createdAt', 'desc'));
+export async function getAllTemplates(userId) {
+  const q = query(userCol(userId, 'customTemplates'), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function updateTemplateDoc(id, data) {
-  const ref = doc(db, TEMPLATES_COLLECTION, id);
-  await updateDoc(ref, data);
+export async function updateTemplateDoc(userId, id, data) {
+  await updateDoc(userDoc(userId, 'customTemplates', id), data);
 }
 
-export async function deleteTemplateDoc(id) {
-  const ref = doc(db, TEMPLATES_COLLECTION, id);
-  await deleteDoc(ref);
+export async function deleteTemplateDoc(userId, id) {
+  await deleteDoc(userDoc(userId, 'customTemplates', id));
+}
+
+// ==================== SHARED REVIEWS (public, root-level) ====================
+export async function createSharedReview(data) {
+  const docRef = await addDoc(collection(db, 'sharedReviews'), data);
+  return docRef.id;
+}
+
+export async function getSharedReview(token) {
+  const q = query(collection(db, 'sharedReviews'), where('token', '==', token));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
 }

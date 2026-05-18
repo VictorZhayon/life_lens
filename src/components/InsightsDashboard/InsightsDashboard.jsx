@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useReviews } from '../../hooks/useReviews';
 import { generateInsights } from '../../services/gemini';
 import { exportReviewAsPDF } from '../../services/pdfExport';
+import { shareReview } from '../../services/shareService';
 import { lifeAreas } from '../../data/lifeAreas';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -17,6 +18,8 @@ export default function InsightsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [shareLink, setShareLink] = useState(null);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (reviewsLoading) return; // Wait for Firestore to finish loading
@@ -210,6 +213,20 @@ export default function InsightsDashboard() {
               className="px-5 py-2.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl
                 hover:border-emerald-500 hover:text-emerald-400 transition-all duration-200 text-sm disabled:opacity-50">
               {exporting ? '⏳ Exporting...' : '📄 Export PDF'}
+            </button>
+            <button onClick={async () => {
+              if (!review) return;
+              setSharing(true);
+              try {
+                const link = await shareReview(review);
+                setShareLink(link);
+                await navigator.clipboard.writeText(link);
+              } catch (err) { console.error(err); }
+              finally { setSharing(false); }
+            }} disabled={sharing}
+              className="px-5 py-2.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl
+                hover:border-purple-500 hover:text-purple-400 transition-all duration-200 text-sm disabled:opacity-50">
+              {shareLink ? '✓ Link Copied!' : sharing ? '⏳ Sharing...' : '🔗 Share'}
             </button>
           </div>
         </>

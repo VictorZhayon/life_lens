@@ -6,6 +6,8 @@ const emptyGoal = {
   description: '',
   area: '',
   deadline: '',
+  recurring: false,
+  recurringFrequency: 'weekly',
   milestones: ['']
 };
 
@@ -128,6 +130,28 @@ export default function GoalForm({ onSave, onCancel, editGoal }) {
                 text-slate-200 text-sm
                 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
             />
+          </div>
+
+          {/* Recurring */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-slate-400">Recurring Goal</label>
+              <button type="button" onClick={() => handleChange('recurring', !goal.recurring)}
+                className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${goal.recurring ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${goal.recurring ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
+            {goal.recurring && (
+              <div className="flex gap-2 mt-2">
+                {['daily', 'weekly', 'monthly'].map(freq => (
+                  <button key={freq} type="button" onClick={() => handleChange('recurringFrequency', freq)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                      ${goal.recurringFrequency === freq ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300' : 'border-slate-700 text-slate-400'}`}>
+                    {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Milestones */}
